@@ -149,31 +149,37 @@ uploaded_file = st.sidebar.file_uploader("Upload an image or PDF of your soil te
 
 if uploaded_file is not None:
     if st.sidebar.button("🚀 Parse & Analyze Soil"):
-        with st.spinner("Analyzing soil report & generating advice..."):
-            # 1. Save temporary file
-            file_ext = uploaded_file.name.split('.')[-1].lower()
-            temp_filename = f"temp_soil_report.{file_ext}"
-            with open(temp_filename, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            
-            # 2. Parse Report
-            parsed = parser.parse_image(temp_filename)
-            st.session_state.parsed_data = parsed
-            
-            # 3. Get Weather (using current district)
-            weather_info = get_weather(district)
-            
-            # 4. Run ML Prediction
-            predicted_crops = predict_crops(
-                parsed['n'], parsed['p'], parsed['k'], 
-                weather_info['temp'], 
-                weather_info['humidity'], 
-                parsed['ph'], 
-                weather_info['rainfall']
-            )
-            
-            # 5. Get Gemini Advice
+        # 1. Save temporary file
+        file_ext = uploaded_file.name.split('.')[-1].lower()
+        temp_filename = f"temp_soil_report.{file_ext}"
+        with open(temp_filename, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+        with st.status("Analyzing soil report & generating advice...", expanded=True) as status:
             try:
+                # 2. Parse Report
+                st.write("Reading soil report content...")
+                parsed = parser.parse_image(temp_filename)
+                st.session_state.parsed_data = parsed
+                st.write(f"Extracted Metrics: N={parsed['n']}, P={parsed['p']}, K={parsed['k']}, pH={parsed['ph']}")
+                
+                # 3. Get Weather (using current district)
+                st.write(f"Fetching weather for {district}...")
+                weather_info = get_weather(district)
+                
+                # 4. Run ML Prediction
+                st.write("Running crop recommendation model...")
+                predicted_crops = predict_crops(
+                    parsed['n'], parsed['p'], parsed['k'], 
+                    weather_info['temp'], 
+                    weather_info['humidity'], 
+                    parsed['ph'], 
+                    weather_info['rainfall']
+                )
+                st.write(f"Top 3 ML Recommendations: {', '.join(predicted_crops)}")
+                
+                # 5. Get Gemini Advice
+                st.write(f"Generating expert advisor report in {language}...")
                 soil_data = {
                     "n": parsed['n'],
                     "p": parsed['p'],
@@ -197,10 +203,12 @@ if uploaded_file is not None:
                     "language": language
                 }
                 
+                status.update(label="Analysis Complete!", state="complete", expanded=False)
                 st.sidebar.success("Analysis complete!")
                 st.rerun()
             except Exception as e:
-                st.sidebar.error(f"Error: {e}")
+                st.error(f"Error during analysis: {e}")
+                status.update(label="Analysis Failed", state="error")
 
 st.sidebar.subheader("🧪 Soil Metrics")
 n_val = st.sidebar.number_input("Nitrogen (N) Level", min_value=0, max_value=1000, value=int(st.session_state.parsed_data['n']))

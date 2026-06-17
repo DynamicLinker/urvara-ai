@@ -1,14 +1,22 @@
 import os
-import base64
 from dotenv import load_dotenv
 import google.generativeai as genai
+import streamlit as st
 
+# Load from .env locally
 load_dotenv(override=True)
+
+# Safe lookup for Streamlit Cloud and Local
 api_key = os.getenv("api_key")
+if not api_key:
+    try:
+        api_key = st.secrets.get("api_key")
+    except:
+        pass
 
 def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops, language="English", file_path=None):
     if not api_key:
-        raise ValueError("API Key not found. Please set it in .env file.")
+        raise ValueError("API Key not found. Please set 'api_key' in your .env file or Streamlit Secrets.")
         
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-3.1-flash-lite')
@@ -32,23 +40,20 @@ def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops,
     chat = model.start_chat(history=[])
     
     try:
-        if file_path:
-            # Read file bytes for inline data
+        if file_path and os.path.exists(file_path):
             with open(file_path, "rb") as f:
-                file_data = f.read()
+                file_bytes = f.read()
             
-            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/png"
-            if not file_path.lower().endswith('.pdf') and not file_path.lower().endswith('.png'):
-                # Handle other image types if necessary, default to jpeg if not png/pdf
-                if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
-                    mime_type = "image/jpeg"
+            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/jpeg"
+            if file_path.lower().endswith('.png'):
+                mime_type = "image/png"
 
-            # Send file and prompt in one single request using inline_data
+            # One-go upload using inline_data
             response = chat.send_message([
                 prompt,
                 {
                     "mime_type": mime_type,
-                    "data": file_data
+                    "data": file_bytes
                 }
             ])
         else:
@@ -56,10 +61,7 @@ def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops,
             
         return chat, response.text
     except Exception as e:
-        print(f"Error sending file to Gemini in one go: {e}")
-        # Fallback to text-only if multi-modal fails
-        try:
-            response = chat.send_message(prompt)
-            return chat, response.text
-        except:
-            return None, f"Error: {e}"
+        print(f"Advisory File Error: {e}")
+        # Fallback to text-only
+        response = chat.send_message(prompt)
+        return chat, response.text

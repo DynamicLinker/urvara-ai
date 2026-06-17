@@ -2,14 +2,23 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import json
+import streamlit as st
 
+# Load from .env locally
 load_dotenv(override=True)
+
+# Safe lookup for Streamlit Cloud and Local
 api_key = os.getenv("api_key")
+if not api_key:
+    try:
+        api_key = st.secrets.get("api_key")
+    except:
+        pass
 
 class SoilParser:
     def __init__(self):
         if not api_key:
-            raise ValueError("API Key not found. Please set it in .env file.")
+            raise ValueError("API Key not found. Please set 'api_key' in your .env file or Streamlit Secrets.")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
@@ -20,13 +29,15 @@ class SoilParser:
         Sends file and prompt in one go using inline_data.
         """
         try:
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"File not found: {file_path}")
+
             with open(file_path, "rb") as f:
-                file_data = f.read()
+                file_bytes = f.read()
             
-            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/png"
-            if not file_path.lower().endswith('.pdf') and not file_path.lower().endswith('.png'):
-                if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
-                    mime_type = "image/jpeg"
+            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/jpeg"
+            if file_path.lower().endswith('.png'):
+                mime_type = "image/png"
 
             prompt = """
             Analyze this soil test report. 
@@ -51,7 +62,7 @@ class SoilParser:
                 prompt,
                 {
                     "mime_type": mime_type,
-                    "data": file_data
+                    "data": file_bytes
                 }
             ])
             
@@ -69,5 +80,5 @@ class SoilParser:
                 "ph": float(data.get("ph", 7.0))
             }
         except Exception as e:
-            print(f"Error parsing soil report in one go: {e}")
+            print(f"Parsing Error: {e}")
             return {"n": 50, "p": 40, "k": 35, "ph": 7.0}

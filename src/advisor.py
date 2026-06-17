@@ -2,12 +2,21 @@ import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 
+# Load from .env locally
 load_dotenv(override=True)
+
+# Safe lookup for Streamlit Cloud and Local
 api_key = os.getenv("api_key")
+if not api_key:
+    try:
+        import streamlit as st
+        api_key = st.secrets.get("api_key")
+    except:
+        pass
 
 def get_chat_session(soil_data, region_info, weather_data, predicted_crops, language="English"):
     if not api_key:
-        raise ValueError("API Key not found. Please set it in .env file.")
+        raise ValueError("API Key not found. Please set 'api_key' in your .env file or Streamlit Secrets.")
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
