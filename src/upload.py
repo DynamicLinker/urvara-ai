@@ -1,17 +1,21 @@
+import streamlit as st
 import google.generativeai as genai
 import PIL.Image
 import os
 from dotenv import load_dotenv
 import json
 
+# Load from .env locally, or st.secrets on Cloud
 load_dotenv(override=True)
-api_key = os.getenv("api_key")
+api_key = st.secrets.get("api_key") or os.getenv("api_key")
 
 class SoilParser:
     def __init__(self):
+        if not api_key:
+            raise ValueError("API Key not found. Please set it in Streamlit Secrets or .env file.")
         genai.configure(api_key=api_key)
-        # Using gemini-2.0-flash-exp for better vision capabilities and broader availability
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Using the specific model version requested by the user
+        self.model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
     def parse_image(self, file_path):
         """

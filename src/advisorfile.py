@@ -1,21 +1,27 @@
+import streamlit as st
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 import PIL.Image
 
+# Load from .env locally, or st.secrets on Cloud
 load_dotenv(override=True)
-api_key = os.getenv("api_key")
+api_key = st.secrets.get("api_key") or os.getenv("api_key")
 
 def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops, language="English", file_path=None):
+    if not api_key:
+        raise ValueError("API Key not found. Please set it in Streamlit Secrets or .env file.")
+
     genai.configure(api_key=api_key)
-    # Using gemini-2.0-flash-exp for robust vision and document support
+    # Using the specific model version requested by the user
     model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
     crops_list = ", ".join(predicted_crops)
 
+
     prompt = f"""
     You are an expert Agronomist specializing in Uttar Pradesh, India.
-    User Location: provided already.
+    User Location: provided in file.
 
     Task:
     1. Briefly explain why these crops ({crops_list}) are suitable.
