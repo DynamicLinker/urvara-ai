@@ -1,3 +1,4 @@
+
 UP_DISTRICTS = {
     "Kanpur": {"zone": "Central Plain", "soil": "Alluvial", "typical_crops": "Wheat, Rice, Sugarcane"},
     "Jhansi": {"zone": "Bundelkhand", "soil": "Red & Black (Mar/Kabar)", "typical_crops": "Pulses, Oilseeds, Sorghum"},
