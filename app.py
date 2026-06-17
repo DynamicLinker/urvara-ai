@@ -286,7 +286,7 @@ if st.button("🚀 Analyze & Generate Advice"):
                 st.write(f"**Top 3 ML Recommendations:** {', '.join(predicted_crops)}")
                 
                 # 2. Get Gemini Advice based on ML results
-                st.write(f"Generating expert advice in {language} with Gemini AI...")
+                st.write(f"Generating expert advice in {language}")
                 chat, advice_report = get_chat_session(soil_data, region_info, weather_info, predicted_crops, language)
                 
                 status.update(label="Analysis Complete!", state="complete", expanded=False)
@@ -315,7 +315,7 @@ if st.session_state.chat:
     # Using a form to ensure the input is cleared on submit and prevent loops
     with st.form("follow_up_form", clear_on_submit=True):
         follow_up = st.text_input("Follow-up Question", placeholder="clarify")
-        submitted = st.form_submit_button("Ask Gemini")
+        submitted = st.form_submit_button("Ask AI")
         
         if submitted and follow_up:
             with st.spinner("Thinking..."):
