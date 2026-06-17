@@ -186,15 +186,26 @@ if uploaded_file is not None:
                 chat, advice_report = get_chat_session_file(soil_data, region_info, weather_info, predicted_crops, language, temp_filename)
                 st.session_state.chat = chat
                 st.session_state.messages = [{"role": "assistant", "content": advice_report}]
+                
+                # Update last_inputs to prevent the reset on rerun
+                st.session_state.last_inputs = {
+                    "n": parsed['n'],
+                    "p": parsed['p'],
+                    "k": parsed['k'],
+                    "ph": parsed['ph'],
+                    "district": district,
+                    "language": language
+                }
+                
                 st.sidebar.success("Analysis complete!")
                 st.rerun()
             except Exception as e:
                 st.sidebar.error(f"Error: {e}")
 
 st.sidebar.subheader("🧪 Soil Metrics")
-n_val = st.sidebar.number_input("Nitrogen (N) Level", min_value=0, max_value=200, value=int(st.session_state.parsed_data['n']))
-p_val = st.sidebar.number_input("Phosphorus (P) Level", min_value=0, max_value=200, value=int(st.session_state.parsed_data['p']))
-k_val = st.sidebar.number_input("Potassium (K) Level", min_value=0, max_value=300, value=int(st.session_state.parsed_data['k']))
+n_val = st.sidebar.number_input("Nitrogen (N) Level", min_value=0, max_value=1000, value=int(st.session_state.parsed_data['n']))
+p_val = st.sidebar.number_input("Phosphorus (P) Level", min_value=0, max_value=1000, value=int(st.session_state.parsed_data['p']))
+k_val = st.sidebar.number_input("Potassium (K) Level", min_value=0, max_value=1000, value=int(st.session_state.parsed_data['k']))
 ph_val = st.sidebar.slider("Soil pH Level", 4.0, 10.0, float(st.session_state.parsed_data['ph']), step=0.1)
 
 # Check for input changes to reset context

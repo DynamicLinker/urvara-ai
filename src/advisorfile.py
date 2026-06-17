@@ -1,23 +1,19 @@
-import streamlit as st
 import os
+import base64
 from dotenv import load_dotenv
 import google.generativeai as genai
-import PIL.Image
 
-# Load from .env locally, or st.secrets on Cloud
 load_dotenv(override=True)
-api_key = st.secrets.get("api_key") or os.getenv("api_key")
+api_key = os.getenv("api_key")
 
 def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops, language="English", file_path=None):
     if not api_key:
-        raise ValueError("API Key not found. Please set it in Streamlit Secrets or .env file.")
-
+        raise ValueError("API Key not found. Please set it in .env file.")
+        
     genai.configure(api_key=api_key)
-    # Using the specific model version requested by the user
     model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
     crops_list = ", ".join(predicted_crops)
-
 
     prompt = f"""
     You are an expert Agronomist specializing in Uttar Pradesh, India.
@@ -37,20 +33,33 @@ def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops,
     
     try:
         if file_path:
-            if file_path.lower().endswith('.pdf'):
-                # Upload PDF for Gemini to process
-                uploaded_file = genai.upload_file(path=file_path, mime_type="application/pdf")
-                response = chat.send_message([prompt, uploaded_file])
-            else:
-                # Load Image for Gemini to process
-                img = PIL.Image.open(file_path)
-                response = chat.send_message([prompt, img])
+            # Read file bytes for inline data
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            
+            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/png"
+            if not file_path.lower().endswith('.pdf') and not file_path.lower().endswith('.png'):
+                # Handle other image types if necessary, default to jpeg if not png/pdf
+                if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
+                    mime_type = "image/jpeg"
+
+            # Send file and prompt in one single request using inline_data
+            response = chat.send_message([
+                prompt,
+                {
+                    "mime_type": mime_type,
+                    "data": file_data
+                }
+            ])
         else:
             response = chat.send_message(prompt)
             
         return chat, response.text
     except Exception as e:
-        # Fallback to text-only if file handling fails
-        print(f"Error sending file to Gemini: {e}")
-        response = chat.send_message(prompt)
-        return chat, response.text
+        print(f"Error sending file to Gemini in one go: {e}")
+        # Fallback to text-only if multi-modal fails
+        try:
+            response = chat.send_message(prompt)
+            return chat, response.text
+        except:
+            return None, f"Error: {e}"

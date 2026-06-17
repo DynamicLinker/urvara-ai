@@ -1,28 +1,33 @@
-import streamlit as st
 import google.generativeai as genai
-import PIL.Image
 import os
 from dotenv import load_dotenv
 import json
 
-# Load from .env locally, or st.secrets on Cloud
 load_dotenv(override=True)
-api_key = st.secrets.get("api_key") or os.getenv("api_key")
+api_key = os.getenv("api_key")
 
 class SoilParser:
     def __init__(self):
         if not api_key:
-            raise ValueError("API Key not found. Please set it in Streamlit Secrets or .env file.")
+            raise ValueError("API Key not found. Please set it in .env file.")
         genai.configure(api_key=api_key)
-        # Using the specific model version requested by the user
         self.model = genai.GenerativeModel('gemini-3.1-flash-lite')
 
     def parse_image(self, file_path):
         """
         Parses soil metrics (N, P, K, pH) from an image or PDF file using Gemini Vision.
         Handles various orientations and bilingual (English/Hindi) text.
+        Sends file and prompt in one go using inline_data.
         """
         try:
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            
+            mime_type = "application/pdf" if file_path.lower().endswith('.pdf') else "image/png"
+            if not file_path.lower().endswith('.pdf') and not file_path.lower().endswith('.png'):
+                if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
+                    mime_type = "image/jpeg"
+
             prompt = """
             Analyze this soil test report. 
             - The report might be a PDF or an image, and it could be in any orientation.
@@ -41,15 +46,14 @@ class SoilParser:
             Only return the raw JSON object.
             """
 
-            if file_path.lower().endswith('.pdf'):
-                # Handle PDF using Gemini's file upload
-                # Note: This requires the file to be uploaded first
-                uploaded_file = genai.upload_file(path=file_path, mime_type="application/pdf")
-                response = self.model.generate_content([prompt, uploaded_file])
-            else:
-                # Handle Image
-                img = PIL.Image.open(file_path)
-                response = self.model.generate_content([prompt, img])
+            # Sending file and prompt in one single request
+            response = self.model.generate_content([
+                prompt,
+                {
+                    "mime_type": mime_type,
+                    "data": file_data
+                }
+            ])
             
             text = response.text
             if "```json" in text:
@@ -65,5 +69,5 @@ class SoilParser:
                 "ph": float(data.get("ph", 7.0))
             }
         except Exception as e:
-            print(f"Error parsing soil image: {e}")
+            print(f"Error parsing soil report in one go: {e}")
             return {"n": 50, "p": 40, "k": 35, "ph": 7.0}
