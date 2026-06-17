@@ -15,7 +15,7 @@ def get_chat_session_file(soil_data, region_info, weather_data, predicted_crops,
 
     prompt = f"""
     You are an expert Agronomist specializing in Uttar Pradesh, India.
-    User Location: provided in file.
+    User Location: provided already.
 
     Task:
     1. Briefly explain why these crops ({crops_list}) are suitable.
