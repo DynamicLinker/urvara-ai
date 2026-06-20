@@ -1,7 +1,7 @@
 import streamlit as st
 from src.up_data import UP_DISTRICTS
 from src.weather import get_weather
-from src.advisor import get_recommendation
+from src.advisor import get_chat_session
 
 st.set_page_config(
     page_title="UP Smart Crop Advisor",
@@ -54,12 +54,29 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Initialize session state
+if "chat" not in st.session_state:
+    st.session_state.chat = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "last_inputs" not in st.session_state:
+    st.session_state.last_inputs = {}
+
 st.markdown("""
     **AI-Powered Agricultural Intelligence** Providing regional crop recommendations and soil health analysis for farmers across UP.
 """)
 st.divider()
 
 st.sidebar.header("📍 Field Information")
+
+# Language Selection Radio
+language = st.sidebar.radio(
+    "Preferred Language",
+    options=["English", "Hindi"],
+    index=0,
+    horizontal=True
+)
+
 district = st.sidebar.selectbox(
     "Select UP District", 
     options=list(UP_DISTRICTS.keys()),
@@ -67,9 +84,25 @@ district = st.sidebar.selectbox(
 )
 
 st.sidebar.subheader("🧪 Soil Metrics")
-p_val = st.sidebar.number_input("Phosphorus (P) Level", min_value=0, max_value=200, value=40)
-k_val = st.sidebar.number_input("Potassium (K) Level", min_value=0, max_value=300, value=35)
+n_val = st.sidebar.number_input("Nitrogen (N) Level", min_value=0, max_value=1000, value=50)
+p_val = st.sidebar.number_input("Phosphorus (P) Level", min_value=0, max_value=1000, value=40)
+k_val = st.sidebar.number_input("Potassium (K) Level", min_value=0, max_value=1000, value=35)
 ph_val = st.sidebar.slider("Soil pH Level", 4.0, 10.0, 7.0, step=0.1)
+
+# Check for input changes to reset context
+current_inputs = {
+    "n": n_val,
+    "p": p_val,
+    "k": k_val,
+    "ph": ph_val,
+    "district": district,
+    "language": language
+}
+
+if current_inputs != st.session_state.last_inputs:
+    st.session_state.chat = None
+    st.session_state.messages = []
+    st.session_state.last_inputs = current_inputs
 
 st.sidebar.info(f"**Target Zone:** {UP_DISTRICTS[district]['zone']}")
 
@@ -104,18 +137,43 @@ if st.button("🚀 Analyze & Generate Advice"):
         region_info['district'] = district
         
         soil_data = {
+            "n": n_val,
             "p": p_val,
             "k": k_val,
             "ph": ph_val
         }
         
         try:
-            advice_report = get_recommendation(soil_data, region_info, weather_info)
-            
-            st.subheader("📋 Agricultural Advisor Report")
-            st.markdown(advice_report)
+            chat, advice_report = get_chat_session(soil_data, region_info, weather_info, language=language)
+            st.session_state.chat = chat
+            st.session_state.messages = [{"role": "assistant", "content": advice_report}]
             
             st.success("Analysis complete. Hope this helps with your harvest!")
             
         except Exception as e:
             st.error(f"Something went wrong with the AI advisor: {e}")
+
+# Display conversation history
+for i, message in enumerate(st.session_state.messages):
+    if message["role"] == "assistant":
+        st.subheader("📋 Agricultural Advisor Report" if i == 0 else "💬 Follow-up Response")
+        st.markdown(message["content"])
+    else:
+        st.info(f"**Question:** {message['content']}")
+
+# Follow-up "clarify" section
+if st.session_state.chat:
+    st.divider()
+    with st.form("follow_up_form", clear_on_submit=True):
+        follow_up = st.text_input("Follow-up Question", placeholder=" have questions?", label_visibility="collapsed")
+        submitted = st.form_submit_button("Ask")
+        
+        if submitted and follow_up:
+            with st.spinner("Thinking..."):
+                try:
+                    response = st.session_state.chat.send_message(follow_up)
+                    st.session_state.messages.append({"role": "user", "content": follow_up})
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error in follow-up: {e}")
